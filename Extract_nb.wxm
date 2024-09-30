@@ -1,0 +1,329 @@
+/* [wxMaxima batch file version 1] [ DO NOT EDIT BY HAND! ]*/
+/* [ Created with wxMaxima version 22.04.0 ] */
+/* [wxMaxima: input   start ] */
+kill(all);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+load(linearalgebra)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+matsize(A) := [length(A), length(transpose(A))] $
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Ввод имеет вид: A_1 * y' + A_0 * y = 0
+A1 - приведенная по строкам матрица, вырожденная
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+A1 : matrix([1, 0, 0, 0], [0, 1, 0, 0], [0, 0, x^2, 0], [0, 0, 0, 0]);
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+A0 : matrix([0, 0, -1, 0], [0, 1, 0, 0], [-1, -2*x^2, x, -2*x^3], [0, 1, 0, x] );
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+В список y вводим неизвестные Y
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y : [y1, y2, y3, y4];
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+В список y_s указываются индексы выделенных неизвестных
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y_s : [1, 2, 3, 4]; 
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Cоздание y_r - списка невыделенных переменных.
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y_r : makelist(i, i, 1, length(A1))$
+for i:1 while i <= length(y_s) do y_r : delete(y_s[i], y_r)$
+y_r;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Проверка ряда матрицы, полностью ли нулевой. Ряд перед подачей необходимо транспонировать
+Столбец подавать столбцом
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+check_row(r) := block( [tmp], tmp : true, for i : 1 while i <= length(r) do tmp : tmp and is (r[i] = [0]), return(tmp))$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Первый этап, если среди алгебраических уравнений 
+есть такое, в которое входит невыделенная неизвестная с ненулевым кф.
+1.1. Выбрать такое уравнение
+1.2. Используя это уравнение исключить эту неизвестную из всех 
+остальных уравнений
+1.3. Удалить из системы уравнение
+1.4. Если есть еще такие уравнение, вернуться на 1.1.
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: comment start ]
+alg_list - список индексов строк - алгебраических уравнений
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+alg_list : []$
+for i :1 while i <= length(A1) do block( if check_row(transpose(A1[i])) then alg_list : append(alg_list, [i]) )$
+alg_list;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Фунция для исключения переменных
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+del_eq(A, r, c) := block([U], U : ident(length(A)), 
+    A : columnswap(A, c, length(A)),
+    A : rowswap(A, r, length(A)),
+    for i : 1 while i < length(U) do     
+    if is (A[length(A), length(A)] = 0) then U[i, length(A)] : 0 else U[i, length(A)] : - (A[length(A), length(A)])^(-1) * A[i, length(A)],
+    A : U.A,
+    A : columnswap(A, c, length(A)),
+    A : rowswap(A, r, length(A)),
+    return(A)
+)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Исключение неизвестных из всех уравнений:
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+alg_list_tmp : alg_list$
+for i : 1 while i <= length(alg_list) do block (
+    for j : 1 while j <= length(y_r) do block(
+        [tmp, filler],
+        tmp : A0[alg_list[i], y_r[j]],
+        filler : makelist(0, i, length(transpose(A0))),
+        if tmp # 0
+        then block(
+            A1 : del_eq(A1, alg_list[i], y_r[j]), 
+            A0 : del_eq(A0, alg_list[i], y_r[j]), 
+            A1[alg_list[i]] : filler,  
+            A0[alg_list[i]] : filler,
+            alg_list_tmp : delete(alg_list[i], alg_list_tmp),
+            y : delete( part(y, y_r[j]), y)
+        )
+    )
+)$
+alg_list : alg_list_tmp$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Второй этап
+2.1. Из алгебраических уравнений выбрать произвольное
+2.2. Исключить выделенную неизвестную с ненулевым кф
+2.3. Удалить из системы, но запомнить
+2.4. Если остались еще уравнения, вернуться на 2.1.
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y_s;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+alg_list;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+alg_list_tmp : alg_list$
+used_eq : matrix()$
+order_var : []$
+y_tmp : y$
+for i : 1 while i <= length(alg_list) do block (
+    for j : 1 while j <= length(y_s) do block(
+        [tmp, filler],
+        tmp : A0[alg_list[i], y_s[j]],
+        filler : makelist(0, i, length(transpose(A0))),
+        if tmp # 0
+        then block( 
+            used_eq : addrow(used_eq, A0[ alg_list[i] ]),
+            A1 : del_eq(A1, alg_list[i], y_s[j]), 
+            A0 : del_eq(A0, alg_list[i], y_s[j]),
+            A1[alg_list[i]] : filler,  
+            A0[alg_list[i]] : filler,
+            alg_list_tmp : delete(alg_list[i], alg_list_tmp),
+            order_var : append(order_var, [ y_s[j] ]),
+            y_tmp : delete( part(y, y_s[j]) , y_tmp)
+        )
+    )
+)$
+alg_list : alg_list_tmp$
+y : y_tmp$
+    
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+used_eq;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Третий этап
+3.1. Построить матрицу T с количеством строк - равным кол-ву строк в use_eq
+а количество столбцов - кол-во выделенных в конечной системе
+Если удалены все выделенные, то T = [0..0] transpose
+3.2. Иначе по used_eq строится D коэффициентов при неизвестных
+Строки упорядочить по порядку использования алгебр. уравнений в п.2.
+3.3. Нулевые столбцы удаляются, так происходит переход к D~ размера l x k, где k - кол-во выделенных в искодной системе
+3.4. Оставшиеся столбцы упорядочиваются так, чтобы они соответсвовали порядку исключения выделенных в п.2.
+Тогда D~ примет вид [D1 | D2], где D1 - верхнетреугольная без нулей, квадратная
+D2 - оставшаяся часть
+T = -D1^(-1) * D2
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+T : matrix()$
+D1 : matrix()$
+D2 : matrix()$
+filler : makelist(0, i, length(y_s))$
+
+if is (length(used_eq) = length(y_s)) then T : addcol(T, filler)
+else block([T_tmp],
+    T : used_eq,
+    T_tmp : matrix(),
+    for i :1 while i <= length(transpose(T)) do block(
+        [tmp],
+        tmp : col(T, i),
+        if is (member(i, y_s)) then T_tmp : addcol(T_tmp, tmp) else T_tmp : T_tmp
+    ),
+    T : T_tmp,
+    for i : 1 while i <= length(order_var) do block(
+        T : columnswap(T, i, order_var[i])
+    ),
+    for i : 1 while i <= length(T) do block(
+        [tmp],
+        tmp : col(T, i),
+        D1 : addcol(D1, tmp)
+    ),
+    for i : length(T) + 1 while i <= length(transpose(T)) do block(
+        [tmp],
+        tmp : col(T, i),
+        D2 : addcol(D2, tmp)
+    ),
+    if is (matsize(D2) = [0, 0]) then T : -invert(D1) 
+        else if matsize(D1) = [1, 1] and matsize(D2) = [1, 1] then T : -matrix([matrix([invert(D1)]).D2])
+            else T : -invert(D1).D2
+)$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: comment start ]
+Чистка матриц А0 и А1
+   [wxMaxima: comment end   ] */
+
+
+/* [wxMaxima: input   start ] */
+A1_tmp : matrix()$
+A0_tmp : matrix()$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+for i : 1 while i <= length(transpose(A1)) do block(
+        [tmp],
+        tmp : col(A1, i),
+        if check_row(tmp) then A1_tmp : A1_tmp else A1_tmp : addcol(A1_tmp, tmp)
+    )$
+A1 : A1_tmp$
+A1_tmp : matrix()$
+for i : 1 while i <= length(A1) do block(
+        [tmp],
+        tmp : row(A1, i),
+        if check_row(transpose(tmp)) then A1_tmp : A1_tmp else A1_tmp : addrow(A1_tmp, tmp)
+    )$
+A1 : A1_tmp$
+
+for i : 1 while i <= length(transpose(A0)) do block(
+        [tmp],
+        tmp : col(A0, i),
+        if check_row(tmp) then A0_tmp : A0_tmp else A0_tmp : addcol(A0_tmp, tmp)
+    )$
+A0 : A0_tmp$
+A0_tmp : matrix()$
+for i : 1 while i <= length(A0) do block(
+        [tmp],
+        tmp : row(A0, i),
+        if check_row(transpose(tmp)) then A0_tmp : A0_tmp else A0_tmp : addrow(A0_tmp, tmp)
+    )$
+A0 : A0_tmp$
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+A1;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+A0;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+y;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+T;
+/* [wxMaxima: input   end   ] */
+
+
+/* [wxMaxima: input   start ] */
+used_eq;
+/* [wxMaxima: input   end   ] */
+
+
+
+/* Old versions of Maxima abort on loading files that end in a comment. */
+"Created with wxMaxima 22.04.0"$
